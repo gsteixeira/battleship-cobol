@@ -29,7 +29,8 @@ If you just want to try it, skip this.
     - Repeat until someone loose all the ships.
     
 ### Installing Dependencies
-    Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packagin manager, or:
+
+Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packagin manager, or:
     
 ```bash
     make dep
