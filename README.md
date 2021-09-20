@@ -3,7 +3,7 @@
 A Cobol implementation of the classical [Battleship](https://en.wikipedia.org/wiki/Battleship_(game)) game.
 
 ### How to install
-You can also install it if you wish.
+If you just want to try it, skip this.
 
 ```bash
     git clone github.com/gsteixeira/battleship-cobol

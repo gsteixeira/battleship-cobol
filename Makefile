@@ -3,7 +3,7 @@ default: battleship.cob
 	cobc --free -x -o build/battleship battleship.cob
 
 run: build/battleship
-	./build/battleship
+	cobc --free -xj -o build/battleship battleship.cob
 
 install: build/battleship
 	install ./build/battleship /usr/local/bin/
