@@ -36,5 +36,5 @@ Battleship-cobol uses only the basic **gnucobol**. You need to install it in you
     make dep
     make
 ```
-    
+
 Have fun!
