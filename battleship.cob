@@ -181,7 +181,7 @@
 
                 01 screen_game_over.
                     05 LINE 12 COLUMN 16 VALUE "  *** GAME OVER ***".
-                    05 LINE 22 COLUMN 5
+                    05 LINE 21 COLUMN 5
                                     VALUE " Press key to continue...".
                     *> 05 COLUMN PLUS 2 VALUE "<Enter>" BLINK.
                     05 COLUMN PLUS 2 USING guess_y_tx.
@@ -207,13 +207,11 @@
                     05 COLUMN PLUS 2 USING player_name.
 
                 01 user_input_screen.
-                    05 LINE 22 COLUMN 5 VALUE "Your turn: " BLINK.
+                    05 LINE 21 COLUMN 5 VALUE "Your turn: " BLINK.
                     05 COLUMN PLUS 2 USING guess_y_tx AUTO-SKIP.
                     05 COLUMN PLUS 2 USING guess_x AUTO-SKIP.
 
             PROCEDURE DIVISION.
-                *> PERFORM main_menu.
-
             main_menu.
                 ACCEPT main_menu_screen.
                 EVALUATE menu_opt
@@ -268,6 +266,8 @@
                 PERFORM init_parameters.
                 DISPLAY " " BLANK SCREEN BACKGROUND-COLOR black
                                         FOREGROUND-COLOR white.
+                *> reset enemy's AI state.
+                CALL "bot_ai" USING 0.
                 *> screen offset for players
                 MOVE 2 TO x_offset(HUMAN_PLAYER)
                 MOVE 2 TO y_offset(HUMAN_PLAYER)
@@ -374,7 +374,7 @@
                                 WITH FOREGROUND-COLOR curr_tile_color
                             ADD 1 TO y
                         END-PERFORM
-                        ADD 12 to y_offset(player) giving y
+                        *> ADD 12 to y_offset(player) giving y
                         *> DISPLAY p_ship_damage(player, ship_idx)
                         *>      AT LINE screen_line COLUMN y
                         *>      WITH FOREGROUND-COLOR red
@@ -408,7 +408,11 @@
                     CALL "letters_to_numbers" USING guess_y_tx
                                                 GIVING guess_y
                 ELSE
-                    CALL "bot_ai" USING enemy, guess_x, guess_y
+                    *> CALL "bot_ai" USING enemy, guess_x, guess_y
+                    COMPUTE guess_x = (FUNCTION RANDOM
+                                        * (BOARD_HEIGTH - 1 + 1) + 1)
+                    COMPUTE guess_y = (FUNCTION RANDOM
+                                        * (BOARD_WIDTH - 1 + 1) + 1)
                     IF GAME_MODE = 2 THEN
                         CALL "CBL_OC_NANOSLEEP" USING 500000000
                     END-IF
@@ -416,7 +420,7 @@
                 PERFORM resolve_move.
                 EXIT.
 
-            *> Get AI move from Enemy
+            *> Get AI move for Enemy
             get_enemy_move.
                 MOVE CPU_PLAYER TO player.
                 MOVE HUMAN_PLAYER TO enemy.
@@ -424,7 +428,7 @@
                 *> prevent repeated shots
                 IF tile(enemy, guess_x, guess_y) = MISSED
                     OR tile(enemy, guess_x, guess_y) = EXPLOSION
-                    *> never, ever miss a change for a GOTO :)
+                    *> never, ever miss a chance to use GOTO :)
                     GO TO get_enemy_move
                 END-IF.
 
@@ -661,14 +665,15 @@
             IDENTIFICATION DIVISION.
                 PROGRAM-ID. bot_ai.
                 *> Controls enemy's "pseudo" AI.
-                *>   There are 3 strategies, and a criteria to choose
+                *>   There are 4 strategies, and a criteria to choose
                 *>   the right strategy for the situation.
                 *>   1- Shoots randomly.
-                *>   2- Shoots methodically around known hit points
-                *>   3- Shoots randomly around known hit points.
-                *>   When we don't know where the ships are, do 1.
+                *>   2- Try shots at a paced interval
+                *>   3- Shoots methodically around known hit points
+                *>   4- Shoots randomly around known hit points.
+                *>   When we don't know where the ships are, do 1 and 2.
                 *>   After that, and while we don't know where EVERY
-                *>   ship are, do 1, 2 and 3 interchangeably.
+                *>   some ships are known but not all, do any strategy
                 *>   When we know where ALL the ships are, do 2 or 3.
                 *> This is Cobol OO in action!
             DATA DIVISION.
@@ -684,13 +689,14 @@
                         05 start_y PIC 99 VALUE ZERO.
                         05 end_x PIC 99 VALUE ZERO.
                         05 end_y PIC 99 VALUE ZERO.
+                        01 step_y PIC 99 VALUE 1.
                     01 strategy_data.
                         05 strategy       PIC 9 VALUE ZERO.
                         05 counter        PIC 99 VALUE ZERO.
                         05 is_valid_guess PIC 9 VALUE ZERO.
                         *> used to define the right strategy
                         05 min_s   PIC 9 VALUE 1.
-                        05 max_s   PIC 9 VALUE 3.
+                        05 max_s   PIC 9 VALUE 4.
                         *> intelligence
                         05 know_one PIC 9 VALUE 0.
                         05 know_all PIC 9 VALUE 0.
@@ -698,32 +704,45 @@
                     01 enemy PIC 9 VALUE 1.
                     01 guess_x PIC 9 VALUE 1.
                     01 guess_y PIC 99 VALUE 1.
+                SCREEN SECTION.
+                    01 debug_ai.
+                        05 LINE 12 COLUMN 2 USING strategy.
+                        05 COLUMN PLUS 5 USING know_one.
+                        05 COLUMN PLUS 5 USING know_all.
+                        05 LINE PLUS 1 COLUMN 2 USING x.
+                        05 COLUMN PLUS 5 USING y.
+                        05 LINE 13 COLUMN 15 USING guess_x.
+                        05 COLUMN 20 USING guess_y.
+
             PROCEDURE DIVISION USING enemy, guess_x, guess_y.
-            start_ai_process.
-                MOVE 0 TO counter.
-                PERFORM gather_intelligence.
-                COMPUTE strategy = (FUNCTION RANDOM
-                                    * (max_s - min_s + 1) + min_s)
-                IF strategy = 1 THEN
-                    PERFORM do_random_guess
-                    GOBACK
-                END-IF.
-                *> look around, if find a HIT, we search around it
-                PERFORM VARYING x FROM 1 BY 1 UNTIL x > BOARD_HEIGTH
-                    PERFORM VARYING y FROM 1 BY 1 UNTIL y > BOARD_WIDTH
-                        IF tile(enemy, x, y) = EXPLOSION THEN
-                            PERFORM get_narrow_search_params
-                            IF strategy = 2 THEN
-                                PERFORM do_narrow_guess
-                            ELSE
-                                PERFORM do_narrow_search
-                            END-IF
-                        END-IF
-                    END-PERFORM
-                END-PERFORM.
-                *> if we cant make a smart guess, make dumb one.
-                PERFORM do_random_guess.
-            GOBACK.
+                start_ai_process.
+                    *> if called with enemy = 0, reset state
+                    IF enemy = 0 THEN
+                        PERFORM reset_state
+                        GOBACK
+                    END-IF.
+                    MOVE 0 TO counter.
+                    PERFORM gather_intelligence.
+                    MOVE 0 TO is_valid_guess.
+                    PERFORM UNTIL is_valid_guess = 1
+                        COMPUTE strategy = (FUNCTION RANDOM
+                                        * (max_s - min_s + 1) + min_s)
+                        EVALUATE strategy
+                            WHEN 1
+                                PERFORM do_random_guess
+                            WHEN 2
+                                PERFORM step_search
+                            WHEN 3
+                                PERFORM shoot_near_known_ships
+                            WHEN 4
+                                PERFORM shoot_near_known_ships
+                            WHEN OTHER
+                                PERFORM do_random_guess
+                        END-EVALUATE
+                        PERFORM check_valid_guess
+                        *> DISPLAY debug_ai
+                    END-PERFORM.
+                GOBACK.
 
                 *> check game data to make decisions on strategy
                 gather_intelligence.
@@ -743,23 +762,23 @@
                         PERFORM VARYING i FROM 1 BY 1
                                                 UNTIL i > SHIP_NUMBER
                             IF p_ship_damage(enemy, i) <= 0 THEN
-                                MOVE 0 TO know_one
+                                MOVE 0 TO know_all
                             END-IF
                         END-PERFORM
                     END-IF
                     EVALUATE TRUE
                         *> if we know where all are, we dont search randomly
                         WHEN know_all = 1
-                            MOVE 2 TO min_s
-                            MOVE 3 TO max_s
+                            MOVE 3 TO min_s
+                            MOVE 4 TO max_s
                         *> all strategies while we dont know where they are
                         WHEN know_one = 1 AND know_all = 0
                             MOVE 1 TO min_s
-                            MOVE 3 TO max_s
+                            MOVE 4 TO max_s
                         *> if we havent hit anything, keep trying randomly
                         WHEN know_one = 0
                             MOVE 1 TO min_s
-                            MOVE 1 TO max_s
+                            MOVE 2 TO max_s
                     END-EVALUATE.
                     EXIT.
 
@@ -781,13 +800,53 @@
                                         * (BOARD_WIDTH - 1 + 1) + 1)
                     PERFORM check_valid_guess.
                     ADD 1 TO counter.
-                    IF is_valid_guess = 1 THEN
-                        IF counter < GIVE_UP THEN
-                            GO TO do_random_guess
-                        END-IF
+                    IF is_valid_guess = 0 AND counter < GIVE_UP THEN
+                        GO TO do_random_guess
                     END-IF.
                     EXIT.
-    
+
+                *> try shots at a steped interval
+                step_search.
+                    MOVE 0 TO x.
+                    MOVE step_y TO y.
+                    PERFORM UNTIL x > BOARD_HEIGTH
+                                    OR is_valid_guess = 1
+                        MOVE step_y TO y
+                        ADD 1 TO x
+                        PERFORM UNTIL y > BOARD_WIDTH
+                                        OR is_valid_guess = 1
+                            IF tile(enemy, x, y) <> MISSED
+                                AND tile(enemy, x, y) <> EXPLOSION THEN
+                                    MOVE x TO guess_x
+                                    MOVE y TO guess_y
+                                    MOVE 1 TO is_valid_guess
+                            END-IF
+                            ADD 3 TO y
+                        END-PERFORM
+                    END-PERFORM.
+                    IF x > BOARD_HEIGTH THEN
+                        ADD 1 TO step_y
+                    END-IF.
+                    EXIT.
+
+                shoot_near_known_ships.
+                    *> look around, if find a HIT, we search around it
+                    PERFORM VARYING x FROM 1 BY 1 UNTIL x > BOARD_HEIGTH
+                                                        OR is_valid_guess = 1
+                        PERFORM VARYING y FROM 1 BY 1 UNTIL y > BOARD_WIDTH
+                                                        OR is_valid_guess = 1
+                            IF tile(enemy, x, y) = EXPLOSION THEN
+                                PERFORM get_narrow_search_params
+                                IF strategy = 2 THEN
+                                    PERFORM do_narrow_guess
+                                ELSE
+                                    PERFORM do_narrow_search
+                                END-IF
+                            END-IF
+                        END-PERFORM
+                    END-PERFORM.
+                    EXIT.
+
                 *> try a shot in a narrow area. Keep trying until GIVE_UP
                 do_narrow_guess.
                     COMPUTE guess_x = (FUNCTION RANDOM
@@ -798,23 +857,25 @@
                                             + start_x)
                     PERFORM check_valid_guess.
                     ADD 1 TO counter.
-                    IF is_valid_guess = 1 THEN
-                        IF counter < GIVE_UP THEN
-                            GO TO do_random_guess
-                        END-IF
+                    IF is_valid_guess = 0 AND counter < GIVE_UP THEN
+                        GO TO do_narrow_guess
                     END-IF.
                     EXIT.
 
                 do_narrow_search.
                     PERFORM VARYING i FROM start_x
                                         BY 1 UNTIL i > end_x
+                                                OR is_valid_guess = 1
                         PERFORM VARYING j FROM start_y
                                     BY 1 UNTIL j > end_y
+                                            OR is_valid_guess = 1
                             IF tile(enemy, i, j) = WATER
                                 OR tile(enemy, i, j) = SHIP_SPRITE THEN
                                     MOVE i TO guess_x
                                     MOVE j TO guess_y
-                                    GOBACK
+                                    *> MOVE 1 TO is_valid_guess
+                                    PERFORM check_valid_guess
+                                    *> GOBACK
                             END-IF
                         END-PERFORM
                     END-PERFORM.
@@ -833,13 +894,23 @@
                     END-IF
                     *> where search ends
                     COMPUTE end_x = x + 1
-                    IF end_x >= BOARD_HEIGTH THEN
+                    IF end_x > BOARD_HEIGTH THEN
                         MOVE BOARD_HEIGTH TO end_x
                     END-IF
                     COMPUTE end_y = y + 1
                     IF end_y > BOARD_WIDTH THEN
                         MOVE BOARD_WIDTH TO end_y
                     END-IF
+                    EXIT.
+
+                *> reset state of AI for the next round
+                reset_state.
+                    MOVE 0 TO know_one.
+                    MOVE 0 TO know_all.
+                    MOVE 1 TO min_s.
+                    MOVE 4 TO max_s.
+                    MOVE 0 TO counter.
+                    MOVE 1 TO step_y.
                     EXIT.
             END PROGRAM bot_ai.
         END PROGRAM Battleship.
@@ -894,7 +965,7 @@
             DATA DIVISION.
                 FILE SECTION.
                     FD  csv_file.
-                        01 line_record  PIC X(16) VALUE SPACES.
+                        01 line_record  PIC X(32) VALUE SPACES.
                 WORKING-STORAGE SECTION.
                     01 MAX_RECORDS  CONSTANT AS 10.
                     01 ALIGN_COLUMN CONSTANT AS 12.
@@ -907,6 +978,18 @@
                     01 magenta      CONSTANT AS 5.
                     01 brown        CONSTANT AS 6.
                     01 white        CONSTANT AS 7.
+                    *> date manipulation
+                    01 date_time.
+                        02 dt_date.
+                            03 year     PIC 9999 VALUE 0.
+                            03 month    PIC 99 VALUE 0.
+                            03 dday     PIC 99 VALUE 0.
+                        02 dt_time.
+                            03 hour     PIC 99 VALUE 0.
+                            03 minute   PIC 99 VALUE 0.
+                            03 second   PIC 99 VALUE 0.
+                            03 milis    PIC 999 VALUE 0.
+                    01 tx_date_time     PIC X(10) VALUE SPACES.
                     *> file manipulation
                     01 csv_data.
                         02 csv_file_name   PIC X(4096)
@@ -924,11 +1007,13 @@
                     01 score_record.
                         05 record_name PIC X(10) VALUE SPACES.
                         05 record_score PIC 9999 VALUE ZEROS.
+                        05 record_date  PIC X(10) VALUE SPACES.
 
                     01 fame_counter     PIC 99 VALUE ZERO.
                     01 famous OCCURS 99 TIMES.
                         10 famous_name  PIC X(10) VALUE SPACES.
                         10 famous_score PIC 9999 VALUE ZEROS.
+                        10 famous_date  PIC X(10) VALUE SPACES.
 
                 LINKAGE SECTION.
                     01 arg_player_score     PIC 9999.
@@ -941,21 +1026,25 @@
                         05 LINE 2 COLUMN ALIGN_COLUMN
                                         VALUE "Hall of Fame".
                         05 LINE PLUS 1 COLUMN ALIGN_COLUMN
-                                        VALUE "=======================".
+                            VALUE "===================================".
 
             PROCEDURE DIVISION USING arg_player_score,
                                      arg_cpu_score,
                                      arg_player_name.
+                MOVE FUNCTION CURRENT-DATE TO date_time.
+                STRING year"-"month"-"dday INTO tx_date_time.
                 IF data_loaded = 0 THEN
                     PERFORM load_from_storage
                 END-IF.
                 IF arg_player_score > 0 THEN
                     MOVE arg_player_name TO record_name
                     MOVE arg_player_score TO record_score
+                    MOVE tx_date_time TO record_date
                     PERFORM insert_record
 
                     MOVE "Computer" TO record_name
                     MOVE arg_cpu_score TO record_score
+                    MOVE tx_date_time TO record_date
                     PERFORM insert_record
                     PERFORM dump_to_storage
                 END-IF.
@@ -976,6 +1065,7 @@
                             PERFORM move_list_behind
                             MOVE record_score TO famous_score(i)
                             MOVE record_name TO famous_name(i)
+                            MOVE record_date TO famous_date(i)
                             ADD 1 TO fame_counter
                             MOVE 1 TO done
                         END-IF
@@ -1003,6 +1093,9 @@
                         ADD 19 TO ALIGN_COLUMN GIVING x
                         DISPLAY famous_score(i) AT LINE j COLUMN x
                                     WITH FOREGROUND-COLOR green
+                        ADD 25 TO ALIGN_COLUMN GIVING x
+                        DISPLAY famous_date(i) AT LINE j COLUMN x
+                                    WITH FOREGROUND-COLOR brown
                         ADD 1 TO j
                     END-PERFORM.
                     ADD 1 TO j.
@@ -1018,7 +1111,9 @@
                     PERFORM VARYING i FROM 1 BY 1 UNTIL i > fame_counter
                                                 OR famous_score(i) = 0
                                                 OR i > MAX_RECORDS
-                        STRING famous_name(i)";"famous_score(i)
+                        STRING famous_name(i)";"
+                               famous_score(i)";"
+                               famous_date(i)
                             INTO line_record
                             END-STRING
                         WRITE line_record
@@ -1039,7 +1134,8 @@
                             IF end_of_file = 0 THEN
                                 UNSTRING line_record DELIMITED BY ';'
                                     INTO record_name
-                                        record_score
+                                         record_score
+                                         record_date
                                     END-UNSTRING
                                 PERFORM insert_record
                             END-IF
