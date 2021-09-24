@@ -2,21 +2,22 @@
 
 A Cobol implementation of the classical [Battleship](https://en.wikipedia.org/wiki/Battleship_(game)) game.
 
-### How to install
-If you just want to try it, skip this.
-
-```bash
-    git clone github.com/gsteixeira/battleship-cobol
-    cd battleship-cobol
-    make install
-```
-
 ### How to run
 ```bash
     # If you just installed
     battleship
     # if you haven't installed
     make run
+```
+
+### How to install
+If you just want to try it, skip this.
+
+```bash
+    git clone github.com/gsteixeira/battleship-cobol
+    cd battleship-cobol
+    make
+    make install
 ```
 
 ### How to play

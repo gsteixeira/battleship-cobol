@@ -31,7 +31,7 @@
                 01 cyan         CONSTANT AS 3.
                 01 red          CONSTANT AS 4.
                 01 magenta      CONSTANT AS 5.
-                01 brown        CONSTANT AS 6.
+                01 yellow        CONSTANT AS 6.
                 01 white        CONSTANT AS 7.
                 *> Game
                 01 GAME_OVER    PIC 9 VALUE 0.
@@ -93,7 +93,7 @@
                         10 class_name     PIC X(10) VALUE "cruiser".
                     05 submarine.
                         10 class_lenght   PIC 9 VALUE 3.
-                        10 class_color    PIC 9 VALUE brown.
+                        10 class_color    PIC 9 VALUE yellow.
                         10 class_name     PIC X(10) VALUE "submarine".
                     05 destroyer.
                         10 class_lenght   PIC 9 VALUE 2.
@@ -169,7 +169,7 @@
                     05 LINE PLUS 1 COLUMN 10
                                             VALUE "1- Set player name:".
                     05 COLUMN PLUS 2 USING player_name
-                                    FOREGROUND-COLOR brown.
+                                    FOREGROUND-COLOR yellow.
                     05 LINE PLUS 1 COLUMN 10 VALUE "2- Hits turn red".
                     05 COLUMN PLUS 2 USING FIRE_ON_HIT
                                     FOREGROUND-COLOR blue.
@@ -316,7 +316,6 @@
                         ADD x TO x_offset(player) GIVING screen_line
                         DISPLAY x AT LINE screen_line COLUMN 1
                         DISPLAY x AT LINE screen_line COLUMN 29
-                        
                         PERFORM VARYING y FROM 1 BY 1
                                             UNTIL y > BOARD_WIDTH
                             MULTIPLY y BY TILE_WITH GIVING y_screen
@@ -673,8 +672,8 @@
                 *>   4- Shoots randomly around known hit points.
                 *>   When we don't know where the ships are, do 1 and 2.
                 *>   After that, and while we don't know where EVERY
-                *>   some ships are known but not all, do any strategy
-                *>   When we know where ALL the ships are, do 2 or 3.
+                *>      other ship are, do a mix of all strategies.
+                *>   When we know where ALL the ships are, do 3 or 4.
                 *> This is Cobol OO in action!
             DATA DIVISION.
                 WORKING-STORAGE SECTION.
@@ -829,8 +828,8 @@
                     END-IF.
                     EXIT.
 
+                *> look around, if find a HIT, we search around it
                 shoot_near_known_ships.
-                    *> look around, if find a HIT, we search around it
                     PERFORM VARYING x FROM 1 BY 1 UNTIL x > BOARD_HEIGTH
                                                         OR is_valid_guess = 1
                         PERFORM VARYING y FROM 1 BY 1 UNTIL y > BOARD_WIDTH
@@ -862,6 +861,7 @@
                     END-IF.
                     EXIT.
 
+                *> shot around known ships
                 do_narrow_search.
                     PERFORM VARYING i FROM start_x
                                         BY 1 UNTIL i > end_x
@@ -875,7 +875,6 @@
                                     MOVE j TO guess_y
                                     *> MOVE 1 TO is_valid_guess
                                     PERFORM check_valid_guess
-                                    *> GOBACK
                             END-IF
                         END-PERFORM
                     END-PERFORM.
@@ -976,7 +975,7 @@
                     01 cyan         CONSTANT AS 3.
                     01 red          CONSTANT AS 4.
                     01 magenta      CONSTANT AS 5.
-                    01 brown        CONSTANT AS 6.
+                    01 yellow       CONSTANT AS 6.
                     01 white        CONSTANT AS 7.
                     *> date manipulation
                     01 date_time.
@@ -992,9 +991,9 @@
                     01 tx_date_time     PIC X(10) VALUE SPACES.
                     *> file manipulation
                     01 csv_data.
-                        02 csv_file_name   PIC X(4096)
-                                        VALUE 'hall_of_fame.csv'.
+                        02 csv_file_name   PIC X(256).
                         02 end_of_file     PIC 9 VALUE ZERO.
+                        02 home_dir        PIC X(256) VALUE SPACES.
                     01 data_loaded PIC 9 VALUE 0.
                     01 file_status  PIC XX.
                     *> auxiliary
@@ -1031,6 +1030,12 @@
             PROCEDURE DIVISION USING arg_player_score,
                                      arg_cpu_score,
                                      arg_player_name.
+                *> get persistance file impormation
+                ACCEPT home_dir FROM ENVIRONMENT "HOME".
+                STRING home_dir DELIMITED BY SPACES
+                        "/.battleship_hall_of_fame.csv" 
+                        INTO csv_file_name.
+                *> get date information
                 MOVE FUNCTION CURRENT-DATE TO date_time.
                 STRING year"-"month"-"dday INTO tx_date_time.
                 IF data_loaded = 0 THEN
@@ -1095,7 +1100,7 @@
                                     WITH FOREGROUND-COLOR green
                         ADD 25 TO ALIGN_COLUMN GIVING x
                         DISPLAY famous_date(i) AT LINE j COLUMN x
-                                    WITH FOREGROUND-COLOR brown
+                                    WITH FOREGROUND-COLOR yellow
                         ADD 1 TO j
                     END-PERFORM.
                     ADD 1 TO j.
