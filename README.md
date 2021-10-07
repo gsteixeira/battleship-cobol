@@ -2,22 +2,28 @@
 
 A Cobol implementation of the classical [Battleship](https://en.wikipedia.org/wiki/Battleship_(game)) game.
 
-### How to run
-```bash
-    # If you just installed
-    battleship
-    # if you haven't installed
-    make run
-```
+![Battleship Cobol - Game board](/images/board.png)
+
 
 ### How to install
-If you just want to try it, skip this.
+
+Build:
 
 ```bash
     git clone github.com/gsteixeira/battleship-cobol
     cd battleship-cobol
     make
     make install
+```
+Or just download from Releases..
+
+### How to run
+
+```bash
+    # If you just installed
+    battleship
+    # if you haven't installed
+    make run
 ```
 
 ### How to play
@@ -31,11 +37,16 @@ If you just want to try it, skip this.
     
 ### Installing Dependencies
 
-Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packagin manager, or:
+Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packaging manager, or:
     
 ```bash
     make dep
     make
 ```
+
+![Battleship Cobol - Main menu](/images/menu.png)
+
+
+![Battleship Cobol - Victory](/images/victory.png)
 
 Have fun!
