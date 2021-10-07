@@ -37,7 +37,9 @@ Or just download from Releases..
     
 ### Installing Dependencies
 
-Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packaging manager, or:
+There is no dependency to play the game. You can download a compiled game from the [Releases](https://github.com/gsteixeira/battleship-cobol/releases) section, and play right away.
+
+I you are want to build it, Battleship-cobol uses only the basic **gnucobol**. You need to install it in your distribuition packaging manager, or:
     
 ```bash
     make dep
