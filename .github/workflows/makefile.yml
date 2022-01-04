@@ -1,0 +1,28 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+        
+    - name: Install dependencies
+      run: |
+        sudo apt-get install -y gnucobol
+
+    - name: Run make
+      run: make
+
+    - name: Run make dist
+      run: make dist
+
+    - name: Run distcheck
+      run: make distcheck
